@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Data / uploads
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.heif
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Model and cache files
+.cache/
+hf_cache/
+models_cache/
+
+# Logs
+*.log
