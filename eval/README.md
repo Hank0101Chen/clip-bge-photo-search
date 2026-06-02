@@ -1,12 +1,24 @@
 # Evaluation Data Format
 
-This folder contains tiny sample files that document the expected format for retrieval-quality evaluation.
+This folder documents how to evaluate retrieval quality improvement from original CLIP retrieval to CLIP + BGE-M3 caption reranking.
 
 The full Flickr30K-CN test set is **not included** in this repository because it is large and should be obtained from its original source/license.
 
-## Ground Truth
+Chinese-CLIP provides a preprocessed Flickr30K-CN package:
 
-`sample_ground_truth.json`:
+```text
+https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
+```
+
+## Files
+
+```text
+sample_ground_truth.json
+sample_clip_predictions.json
+sample_bge_rerank_predictions.json
+```
+
+## Ground Truth Format
 
 ```json
 {
@@ -20,9 +32,7 @@ The full Flickr30K-CN test set is **not included** in this repository because it
 }
 ```
 
-## Predictions
-
-`sample_predictions.json`:
+## Prediction Format
 
 ```json
 {
@@ -35,10 +45,10 @@ The full Flickr30K-CN test set is **not included** in this repository because it
 }
 ```
 
-## Run Evaluation
+## Compare CLIP vs BGE Rerank
 
 ```bash
-python worker/scripts/evaluate_rankings.py   --ground-truth eval/sample_ground_truth.json   --predictions eval/sample_predictions.json
+python worker/scripts/evaluate_improvement.py   --ground-truth eval/sample_ground_truth.json   --baseline eval/sample_clip_predictions.json   --rerank eval/sample_bge_rerank_predictions.json
 ```
 
 Metrics:

@@ -3,8 +3,8 @@
     {
       "query_id": "q001",
       "retrieved_photo_ids": [
-        "photo_003",
         "photo_002",
+        "photo_003",
         "photo_001",
         "photo_004",
         "photo_005"
@@ -13,8 +13,8 @@
     {
       "query_id": "q002",
       "retrieved_photo_ids": [
-        "photo_002",
         "photo_001",
+        "photo_002",
         "photo_003",
         "photo_004",
         "photo_005"
@@ -23,9 +23,9 @@
     {
       "query_id": "q003",
       "retrieved_photo_ids": [
+        "photo_001",
         "photo_005",
         "photo_004",
-        "photo_001",
         "photo_002",
         "photo_003"
       ]

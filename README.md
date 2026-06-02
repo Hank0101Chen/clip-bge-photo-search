@@ -192,26 +192,9 @@ multipart file: photo.jpg
 }
 ```
 
-## 效能提升
+## 效能提升：相對原始 CLIP 的檢索品質提升
 
-在 Mac mini M4 24GB、BGE-M3 CPU 測試 top-50 caption rerank：
-
-| 方法 | Median latency |
-|---|---:|
-| 每次搜尋即時計算 50 條 caption embedding | 5527.8 ms |
-| 預先計算 caption embedding，搜尋時只 encode query | 59.5 ms |
-
-提升：
-
-```text
-約 93x faster
-```
-
-這就是為什麼本專案把 `caption_a_embedding` / `caption_b_embedding` 預先寫入 DB。
-
-### 相對原始 CLIP 的檢索品質提升
-
-除了 latency，本專案最重要的改善是：**在原本 Chinese-CLIP top-K 檢索後，利用 BGE-M3 caption embedding 做第二階段 rerank，提升檢索品質。**
+本專案最重要的改善是：**在原本 Chinese-CLIP top-K 檢索後，利用 BGE-M3 caption embedding 做第二階段 rerank，提升檢索品質。**
 
 我們在研究原型中使用 **Flickr30K-CN test subset** 做離線評測。資料集可參考 Chinese-CLIP 官方文件中的資料準備說明，以及其提供的預處理下載包：
 
@@ -252,19 +235,13 @@ MRR:      0.7312 -> 0.7794
 https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
 ```
 
-目前 repo 內建的是：
+目前 repo 內建的是「檢索品質提升」評估腳本：
 
 ```text
-worker/scripts/benchmark_precomputed_rerank.py
+worker/scripts/evaluate_improvement.py
 ```
 
-它可以測「預先計算 caption embedding」前後的 latency 差異。你只要準備一個 `captions.txt`，每行一段 caption：
-
-```bash
-python worker/scripts/benchmark_precomputed_rerank.py   --caption-file captions.txt   --top-k 50   --repeat 20
-```
-
-完整 accuracy evaluation 目前尚未打包進 repo。若要重現上表，需要準備：
+若要重現完整 Flickr30K-CN 結果，需要準備：
 
 ```text
 1. Flickr30K-CN test images
@@ -273,24 +250,26 @@ python worker/scripts/benchmark_precomputed_rerank.py   --caption-file captions.
 4. 跑 alpha sweep，比較 CLIP baseline 與 BGE-M3 caption rerank
 ```
 
-本 repo 現在提供一組小型評估格式範例與 ranking 評估腳本：
+本 repo 現在提供一組小型評估格式範例與「相對原始 CLIP 的效能提升」評估腳本：
 
 ```text
 eval/README.md
 eval/sample_ground_truth.json
-eval/sample_predictions.json
-worker/scripts/evaluate_rankings.py
+eval/sample_clip_predictions.json
+eval/sample_bge_rerank_predictions.json
+worker/scripts/evaluate_improvement.py
 ```
 
 你可以先用 sample 跑通格式：
 
 ```bash
-python worker/scripts/evaluate_rankings.py \
+python worker/scripts/evaluate_improvement.py \
   --ground-truth eval/sample_ground_truth.json \
-  --predictions eval/sample_predictions.json
+  --baseline eval/sample_clip_predictions.json \
+  --rerank eval/sample_bge_rerank_predictions.json
 ```
 
-接著把完整 Flickr30K-CN 或自己的相簿 ground truth 轉成相同格式即可。
+輸出會同時包含 Original CLIP、CLIP + BGE-M3 Caption Rerank，以及兩者在 Recall / Precision / nDCG / MAP 上的提升量。接著把完整 Flickr30K-CN 或自己的相簿 ground truth 轉成相同格式即可。
 
 ## iOS Swift 範例
 
@@ -395,24 +374,9 @@ Search:
 curl -X POST http://localhost:8000/api/photos/search   -F "query=sunset beach"   -F "user_id=1"   -F "limit=10"   -F "rerank=true"   -F "rerank_k=50"   -F "alpha=0.7"   -F "caption_style=A"
 ```
 
-## Performance
+## Performance Improvement vs Original CLIP
 
-Measured top-50 BGE-M3 caption rerank latency on Mac mini M4 24GB:
-
-| Method | Median latency |
-|---|---:|
-| Encode 50 captions on every search | 5527.8 ms |
-| Precompute caption embeddings, encode query only | 59.5 ms |
-
-Median speedup:
-
-```text
-about 93x faster
-```
-
-## Retrieval Quality vs Original CLIP
-
-The main quality improvement is not only latency. The service improves the original Chinese-CLIP retrieval by adding a second-stage BGE-M3 caption reranker.
+The main quality improvement is retrieval quality over the original Chinese-CLIP baseline. The service improves the first-stage Chinese-CLIP top-K results by adding a second-stage BGE-M3 caption reranker.
 
 Offline evaluation from the research prototype used a **Flickr30K-CN test subset**. See the Chinese-CLIP official repository for dataset preparation details and the preprocessed download package:
 
@@ -445,10 +409,10 @@ This repository currently **does not include the full Flickr30K-CN test set** be
 https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
 ```
 
-The repo currently includes a latency benchmark:
+The repo includes a retrieval-quality improvement script:
 
 ```text
-worker/scripts/benchmark_precomputed_rerank.py
+worker/scripts/evaluate_improvement.py
 ```
 
 For full retrieval-quality reproduction, prepare:
@@ -460,24 +424,26 @@ For full retrieval-quality reproduction, prepare:
 4. Run CLIP baseline vs BGE-M3 caption rerank alpha sweep
 ```
 
-This repository includes a small evaluation-format example and a ranking evaluator:
+This repository includes a small evaluation-format example and an improvement evaluator against the original CLIP baseline:
 
 ```text
 eval/README.md
 eval/sample_ground_truth.json
-eval/sample_predictions.json
-worker/scripts/evaluate_rankings.py
+eval/sample_clip_predictions.json
+eval/sample_bge_rerank_predictions.json
+worker/scripts/evaluate_improvement.py
 ```
 
 Run the sample evaluator:
 
 ```bash
-python worker/scripts/evaluate_rankings.py \
+python worker/scripts/evaluate_improvement.py \
   --ground-truth eval/sample_ground_truth.json \
-  --predictions eval/sample_predictions.json
+  --baseline eval/sample_clip_predictions.json \
+  --rerank eval/sample_bge_rerank_predictions.json
 ```
 
-To reproduce the full table, convert Flickr30K-CN or your own album benchmark into the same format.
+The output reports Original CLIP, CLIP + BGE-M3 Caption Rerank, and the metric deltas for Recall / Precision / nDCG / MAP. To reproduce the full table, convert Flickr30K-CN or your own album benchmark into the same format.
 
 
 ## 授權 / License
