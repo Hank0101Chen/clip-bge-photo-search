@@ -1,0 +1,27 @@
+{
+  "queries": [
+    {
+      "query_id": "q001",
+      "query": "海邊夕陽",
+      "relevant_photo_ids": [
+        "photo_001",
+        "photo_003"
+      ]
+    },
+    {
+      "query_id": "q002",
+      "query": "朋友合照",
+      "relevant_photo_ids": [
+        "photo_002"
+      ]
+    },
+    {
+      "query_id": "q003",
+      "query": "城市夜景",
+      "relevant_photo_ids": [
+        "photo_004",
+        "photo_005"
+      ]
+    }
+  ]
+}

@@ -48,25 +48,21 @@ photo_search_bge_service/
 
 ```mermaid
 flowchart TD
-    A[Client / iOS App] -->|POST /api/photos/upload| B[FastAPI API Layer]
-    B --> C[worker.pipeline upload_photo_record]
-    C --> D[Chinese-CLIP Image Encoder
-512-d image vector]
-    D --> E[(PostgreSQL pgvector
-photos.image_embedding)]
+    A["Client / iOS App"] -->|"POST /api/photos/upload"| B["FastAPI API Layer"]
+    B --> C["worker.pipeline upload_photo_record"]
+    C --> D["Chinese-CLIP Image Encoder<br/>512-d image vector"]
+    D --> E["PostgreSQL pgvector<br/>photos.image_embedding"]
 
-    A -->|caption_a / caption_b| F[POST /api/photos/{id}/captions]
-    F --> G[BGE-M3 Text Encoder
-1024-d caption vector]
-    G --> H[(caption_a_embedding
-caption_b_embedding)]
+    A -->|"caption_a / caption_b"| F["POST /api/photos/id/captions"]
+    F --> G["BGE-M3 Text Encoder<br/>1024-d caption vector"]
+    G --> H["caption_a_embedding<br/>caption_b_embedding"]
 
-    A -->|POST /api/photos/search| I[Query]
-    I --> J[Chinese-CLIP Text Encoder]
-    J --> K[Stage 1: pgvector top-K image retrieval]
-    K --> L[Stage 2: BGE-M3 query-caption rerank]
+    A -->|"POST /api/photos/search"| I["Query"]
+    I --> J["Chinese-CLIP Text Encoder"]
+    J --> K["Stage 1: pgvector top-K image retrieval"]
+    K --> L["Stage 2: BGE-M3 query-caption rerank"]
     H --> L
-    L --> M[final_score = 0.7 * clip_sim + 0.3 * caption_sim]
+    L --> M["final_score = 0.7 * clip_sim + 0.3 * caption_sim"]
     M --> A
 ```
 
@@ -209,6 +205,78 @@ multipart file: photo.jpg
 
 這就是為什麼本專案把 `caption_a_embedding` / `caption_b_embedding` 預先寫入 DB。
 
+### 相對原始 CLIP 的檢索品質提升
+
+除了 latency，本專案最重要的改善是：**在原本 Chinese-CLIP top-K 檢索後，利用 BGE-M3 caption embedding 做第二階段 rerank，提升檢索品質。**
+
+我們在研究原型中使用 **Flickr30K-CN test subset** 做離線評測：
+
+```text
+Images: 1,000
+Queries: 5,000 Chinese captions / queries
+First stage: OFA-Sys/chinese-clip-vit-base-patch16
+Rerank: BAAI/bge-m3 caption embedding
+Rerank pool: top-50
+Alpha sweep: 0.0, 0.1, ..., 1.0
+Best alpha: 0.7
+```
+
+| 方法 | Recall@1 | Recall@5 | Recall@10 | MRR |
+|---|---:|---:|---:|---:|
+| 原始 Chinese-CLIP | 0.6238 | 0.8658 | 0.9266 | 0.7312 |
+| Chinese-CLIP + BGE-M3 Caption Rerank | 0.6812 | 0.9028 | 0.9462 | 0.7794 |
+| 提升 | +0.0574 | +0.0370 | +0.0196 | +0.0482 |
+
+換句話說，在這個測試設定下：
+
+```text
+Recall@5: 0.8658 -> 0.9028
+MRR:      0.7312 -> 0.7794
+```
+
+### Repo 是否內建測試集與測試方式？
+
+目前 repo **沒有內建完整 Flickr30K-CN 測試集**，原因是資料集檔案較大，也涉及原資料集授權與下載來源。  
+目前 repo 內建的是：
+
+```text
+worker/scripts/benchmark_precomputed_rerank.py
+```
+
+它可以測「預先計算 caption embedding」前後的 latency 差異。你只要準備一個 `captions.txt`，每行一段 caption：
+
+```bash
+python worker/scripts/benchmark_precomputed_rerank.py   --caption-file captions.txt   --top-k 50   --repeat 20
+```
+
+完整 accuracy evaluation 目前尚未打包進 repo。若要重現上表，需要準備：
+
+```text
+1. Flickr30K-CN test images
+2. 對應的 5,000 條中文 query / caption ground truth
+3. 每張 image 的 Qwen2-VL caption A/B
+4. 跑 alpha sweep，比較 CLIP baseline 與 BGE-M3 caption rerank
+```
+
+本 repo 現在提供一組小型評估格式範例與 ranking 評估腳本：
+
+```text
+eval/README.md
+eval/sample_ground_truth.json
+eval/sample_predictions.json
+worker/scripts/evaluate_rankings.py
+```
+
+你可以先用 sample 跑通格式：
+
+```bash
+python worker/scripts/evaluate_rankings.py \
+  --ground-truth eval/sample_ground_truth.json \
+  --predictions eval/sample_predictions.json
+```
+
+接著把完整 Flickr30K-CN 或自己的相簿 ground truth 轉成相同格式即可。
+
 ## iOS Swift 範例
 
 範例在：
@@ -326,6 +394,63 @@ Median speedup:
 ```text
 about 93x faster
 ```
+
+## Retrieval Quality vs Original CLIP
+
+The main quality improvement is not only latency. The service improves the original Chinese-CLIP retrieval by adding a second-stage BGE-M3 caption reranker.
+
+Offline evaluation from the research prototype used a **Flickr30K-CN test subset**:
+
+```text
+Images: 1,000
+Queries: 5,000 Chinese captions / queries
+First stage: OFA-Sys/chinese-clip-vit-base-patch16
+Rerank: BAAI/bge-m3 caption embedding
+Rerank pool: top-50
+Best alpha: 0.7
+```
+
+| Method | Recall@1 | Recall@5 | Recall@10 | MRR |
+|---|---:|---:|---:|---:|
+| Original Chinese-CLIP | 0.6238 | 0.8658 | 0.9266 | 0.7312 |
+| Chinese-CLIP + BGE-M3 Caption Rerank | 0.6812 | 0.9028 | 0.9462 | 0.7794 |
+| Improvement | +0.0574 | +0.0370 | +0.0196 | +0.0482 |
+
+## Dataset and Evaluation Scripts
+
+This repository currently **does not include the full Flickr30K-CN test set** because the dataset is large and should be obtained from its original source/license. The repo currently includes a latency benchmark:
+
+```text
+worker/scripts/benchmark_precomputed_rerank.py
+```
+
+For full retrieval-quality reproduction, prepare:
+
+```text
+1. Flickr30K-CN test images
+2. Chinese query/caption ground truth
+3. Qwen2-VL captions for each image
+4. Run CLIP baseline vs BGE-M3 caption rerank alpha sweep
+```
+
+This repository includes a small evaluation-format example and a ranking evaluator:
+
+```text
+eval/README.md
+eval/sample_ground_truth.json
+eval/sample_predictions.json
+worker/scripts/evaluate_rankings.py
+```
+
+Run the sample evaluator:
+
+```bash
+python worker/scripts/evaluate_rankings.py \
+  --ground-truth eval/sample_ground_truth.json \
+  --predictions eval/sample_predictions.json
+```
+
+To reproduce the full table, convert Flickr30K-CN or your own album benchmark into the same format.
 
 
 ## 授權 / License
