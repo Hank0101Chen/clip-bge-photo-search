@@ -3,6 +3,10 @@
 > A compact open-source photo search engine built with FastAPI, Chinese-CLIP, PostgreSQL pgvector, and BGE-M3 caption reranking.  
 > 中文說明在前，English documentation follows.
 
+**Language / 語言:** [中文說明](#中文說明) | [English](#english-documentation)
+
+## 中文說明
+
 ## 專案結構
 
 ```text
@@ -79,11 +83,11 @@ final_score    = 0.9 * semantic_score + 0.1 * normalized_nima_score
 
 ```mermaid
 flowchart LR
-    A[CLIP image similarity] --> D[semantic score]
-    B[BGE caption similarity] --> D
-    D --> E[NIMA weighted final score]
-    C[NIMA aesthetic score] --> E
-    E --> F[Final ranked results]
+    A["CLIP image similarity"] --> D["semantic score"]
+    B["BGE caption similarity"] --> D
+    D --> E["NIMA weighted final score"]
+    C["NIMA aesthetic score"] --> E
+    E --> F["Final ranked results"]
 ```
 
 建議 NIMA 只做小權重，例如 `0.05-0.15`，避免「漂亮但不相關」的照片壓過真正符合 query 的照片。
@@ -209,7 +213,13 @@ multipart file: photo.jpg
 
 除了 latency，本專案最重要的改善是：**在原本 Chinese-CLIP top-K 檢索後，利用 BGE-M3 caption embedding 做第二階段 rerank，提升檢索品質。**
 
-我們在研究原型中使用 **Flickr30K-CN test subset** 做離線評測：
+我們在研究原型中使用 **Flickr30K-CN test subset** 做離線評測。資料集可參考 Chinese-CLIP 官方文件中的資料準備說明，以及其提供的預處理下載包：
+
+```text
+Chinese-CLIP repo: https://github.com/OFA-Sys/Chinese-CLIP
+Flickr30K-CN zip: https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
+```
+
 
 ```text
 Images: 1,000
@@ -236,7 +246,12 @@ MRR:      0.7312 -> 0.7794
 
 ### Repo 是否內建測試集與測試方式？
 
-目前 repo **沒有內建完整 Flickr30K-CN 測試集**，原因是資料集檔案較大，也涉及原資料集授權與下載來源。  
+目前 repo **沒有內建完整 Flickr30K-CN 測試集**，原因是資料集檔案較大，也應由使用者依照原資料集與 Chinese-CLIP 官方來源自行下載。你可以從 Chinese-CLIP README 提供的 Hugging Face 連結取得預處理版本：
+
+```text
+https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
+```
+
 目前 repo 內建的是：
 
 ```text
@@ -399,7 +414,13 @@ about 93x faster
 
 The main quality improvement is not only latency. The service improves the original Chinese-CLIP retrieval by adding a second-stage BGE-M3 caption reranker.
 
-Offline evaluation from the research prototype used a **Flickr30K-CN test subset**:
+Offline evaluation from the research prototype used a **Flickr30K-CN test subset**. See the Chinese-CLIP official repository for dataset preparation details and the preprocessed download package:
+
+```text
+Chinese-CLIP repo: https://github.com/OFA-Sys/Chinese-CLIP
+Flickr30K-CN zip: https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
+```
+
 
 ```text
 Images: 1,000
@@ -418,7 +439,13 @@ Best alpha: 0.7
 
 ## Dataset and Evaluation Scripts
 
-This repository currently **does not include the full Flickr30K-CN test set** because the dataset is large and should be obtained from its original source/license. The repo currently includes a latency benchmark:
+This repository currently **does not include the full Flickr30K-CN test set** because the dataset is large and should be obtained from its original source/license. Chinese-CLIP provides a preprocessed Flickr30K-CN package here:
+
+```text
+https://huggingface.co/datasets/OFA-Sys/chinese-clip-eval/resolve/main/Flickr30k-CN.zip
+```
+
+The repo currently includes a latency benchmark:
 
 ```text
 worker/scripts/benchmark_precomputed_rerank.py
